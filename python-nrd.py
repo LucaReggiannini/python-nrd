@@ -17,7 +17,6 @@ def is_registered_within_days(domain, days):
         if isinstance(registration_date, list):
             registration_date = registration_date[0]
 
-        # Se la data di registrazione è valida, la confrontiamo con il threshold
         if registration_date:
             threshold_date = datetime.now() - timedelta(days=days)
             days_since_registration = (datetime.now() - registration_date).days
@@ -26,9 +25,9 @@ def is_registered_within_days(domain, days):
             else:
                 return 'outside_interval', days_since_registration, registration_date
         else:
-            return 'error', None, None  # Nessuna data di registrazione trovata
+            return 'error', None, None
     except Exception as excp:
-        return 'exception', str(excp), None  # Eccezione gestita come errore
+        return 'exception', str(excp), None
 
 def progress_bar(current, total, exceptions):
     text = f"\r[ DOMAINS {current}/{total} | ERRORS {exceptions} ]\r"
@@ -42,35 +41,35 @@ def process_domain(domain, days, verbose, output_file, wait_time, counts, total_
 
     if result == 'within_interval':
         output_str = f"{domain} {extra_info} NEWLY REGISTERED DOMAIN"
-    elif result == 'outside_interval':
-        if verbose >= 2:
-            output_str = f"{domain} OLD"
-    elif result == 'exception':  # Eccezione o errore
+    elif result == 'outside_interval' and verbose >= 1:
+        output_str = f"{domain} OLD"
+    elif result == 'exception' and verbose >= 2: 
         output_str = f"{domain} EXCEPTION {extra_info}"
         with lock:
             counts['errors'] += 1
-    elif result == 'error':  # Eccezione o errore
+    elif result == 'error' and verbose >= 1:
         output_str = f"{domain} ERROR"
         with lock:
             counts['errors'] += 1
 
-    if verbose == 3 and registration_date:  # Livello 3: Mostra anche la data di registrazione
+    if verbose == 3 and registration_date:
         output_str = f"{domain} {registration_date} {('NEWLY REGISTERED DOMAIN' if result == 'within_interval' else 'OLD')}"
 
-    with lock:
-        counts['domains'] += 1
+    if result == 'within_interval' or verbose >= 1:
+        with lock:
+            counts['domains'] += 1
 
-    progress_bar_text, progress_bar_text_clean, progress_bar_length = progress_bar(counts['domains'], total_domains, counts['errors'])
+        progress_bar_text, progress_bar_text_clean, progress_bar_length = progress_bar(counts['domains'], total_domains, counts['errors'])
 
-    if output_str:
-        sys.stdout.write(progress_bar_text_clean)
-        print(output_str)
-        if output_file:
-            with open(output_file, 'a') as f:
-                f.write(output_str + '\n')
+        if output_str:
+            sys.stdout.write(progress_bar_text_clean)
+            print(output_str)
+            if output_file:
+                with open(output_file, 'a') as f:
+                    f.write(output_str + '\n')
 
-    sys.stdout.write(progress_bar_text)
-    sys.stdout.flush()
+        sys.stdout.write(progress_bar_text)
+        sys.stdout.flush()
 
     if wait_time > 0:
         time.sleep(wait_time)
@@ -90,15 +89,22 @@ def check_output_file(output_file, confirm):
 def main():
     parser = argparse.ArgumentParser(
         description='Check domain registration dates and verify if they were registered within a specified number of days.\n'
-                    'By default, only domains registered within the specified time frame are printed. Use -v to print all domains.\n',
+                    'By default, only domains registered within the specified time frame are printed. Use -v to adjust output verbosity.\n'
+                    '\nOutput format: domain [status]. For newly registered domains, the number of days since registration is also shown.\n',
         usage='%(prog)s [options] -i input_file',
         formatter_class=argparse.RawTextHelpFormatter
     )
-    
+
     parser.add_argument("-i", "--input", required=True, help="File containing the list of domains (one per line)")
     parser.add_argument("-o", "--output", help="File to write the output")
     parser.add_argument("-t", "--time", type=int, default=365, help="Number of days to check registration against (default: 365)")
-    parser.add_argument("-v", "--verbose", type=int, choices=[1, 2, 3], default=1, help="Set verbosity level: 1 (default), 2, 3")
+    parser.add_argument("-v", "--verbose", type=int, choices=[0, 1, 2, 3], default=0, help="""
+                        Set verbosity level (default: 0):
+                        0 - Show only newly registered domains
+                        1 - Show newly registered domains, old domains, errors
+                        2 - Show newly registered domains, old domains, errors, exceptions
+                        3 - Show newly registered domains, old domains, errors, exceptions, registration date (for debugging)
+                        """)
     parser.add_argument("-x", "--threads", action="store_true", help="Enable multithreaded checking for faster execution")
     parser.add_argument("-y", "--yes", action="store_true", help="Automatically overwrite the output file if it exists")
     parser.add_argument("-w", "--wait", type=int, default=0, help="Time to wait (in seconds) between WHOIS requests (default: 0)")
@@ -119,13 +125,13 @@ def main():
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 futures = [
                     executor.submit(
-                        process_domain, 
-                        domain, 
-                        args.time, 
-                        args.verbose, 
-                        args.output, 
-                        args.wait, 
-                        counts, 
+                        process_domain,
+                        domain,
+                        args.time,
+                        args.verbose,
+                        args.output,
+                        args.wait,
+                        counts,
                         total_domains
                     ) for domain in domains]
                 for future in concurrent.futures.as_completed(futures):
