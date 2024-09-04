@@ -25,9 +25,9 @@ def is_registered_within_days(domain, days):
             else:
                 return 'outside_interval', days_since_registration, registration_date
         else:
-            return 'error', None, None
+            return 'error', None, None  # Nessuna data di registrazione trovata
     except Exception as excp:
-        return 'exception', str(excp), None
+        return 'exception', str(excp), None  # Eccezione gestita come errore
 
 def progress_bar(current, total, exceptions):
     text = f"\r[ DOMAINS {current}/{total} | ERRORS {exceptions} ]\r"
@@ -43,33 +43,34 @@ def process_domain(domain, days, verbose, output_file, wait_time, counts, total_
         output_str = f"{domain} {extra_info} NEWLY REGISTERED DOMAIN"
     elif result == 'outside_interval' and verbose >= 1:
         output_str = f"{domain} OLD"
-    elif result == 'exception' and verbose >= 2: 
+    elif result == 'exception' and verbose >= 2:  # Eccezione o errore
         output_str = f"{domain} EXCEPTION {extra_info}"
         with lock:
             counts['errors'] += 1
-    elif result == 'error' and verbose >= 1:
+    elif result == 'error' and verbose >= 1:  # Nessuna data di registrazione trovata
         output_str = f"{domain} ERROR"
         with lock:
             counts['errors'] += 1
 
+    # Livello 3: mostra la data di registrazione
     if verbose == 3 and registration_date:
         output_str = f"{domain} {registration_date} {('NEWLY REGISTERED DOMAIN' if result == 'within_interval' else 'OLD')}"
 
-    if result == 'within_interval' or verbose >= 1:
-        with lock:
-            counts['domains'] += 1
+    # Progresso: viene aggiornato indipendentemente dalla verbosità
+    with lock:
+        counts['domains'] += 1
+    progress_bar_text, progress_bar_text_clean, progress_bar_length = progress_bar(counts['domains'], total_domains, counts['errors'])
 
-        progress_bar_text, progress_bar_text_clean, progress_bar_length = progress_bar(counts['domains'], total_domains, counts['errors'])
+    # Aggiorna la progress bar, anche se non c'è output
+    sys.stdout.write(progress_bar_text_clean)
+    if output_str:  # Stampa l'output solo se necessario
+        print(output_str)
+        if output_file:
+            with open(output_file, 'a') as f:
+                f.write(output_str + '\n')
 
-        if output_str:
-            sys.stdout.write(progress_bar_text_clean)
-            print(output_str)
-            if output_file:
-                with open(output_file, 'a') as f:
-                    f.write(output_str + '\n')
-
-        sys.stdout.write(progress_bar_text)
-        sys.stdout.flush()
+    sys.stdout.write(progress_bar_text)
+    sys.stdout.flush()
 
     if wait_time > 0:
         time.sleep(wait_time)
@@ -94,7 +95,7 @@ def main():
         usage='%(prog)s [options] -i input_file',
         formatter_class=argparse.RawTextHelpFormatter
     )
-
+    
     parser.add_argument("-i", "--input", required=True, help="File containing the list of domains (one per line)")
     parser.add_argument("-o", "--output", help="File to write the output")
     parser.add_argument("-t", "--time", type=int, default=365, help="Number of days to check registration against (default: 365)")
@@ -125,13 +126,13 @@ def main():
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 futures = [
                     executor.submit(
-                        process_domain,
-                        domain,
-                        args.time,
-                        args.verbose,
-                        args.output,
-                        args.wait,
-                        counts,
+                        process_domain, 
+                        domain, 
+                        args.time, 
+                        args.verbose, 
+                        args.output, 
+                        args.wait, 
+                        counts, 
                         total_domains
                     ) for domain in domains]
                 for future in concurrent.futures.as_completed(futures):
