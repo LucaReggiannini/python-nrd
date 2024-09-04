@@ -25,9 +25,9 @@ def is_registered_within_days(domain, days):
             else:
                 return 'outside_interval', days_since_registration, registration_date
         else:
-            return 'error', None, None  # Nessuna data di registrazione trovata
+            return 'error', None, None
     except Exception as excp:
-        return 'exception', str(excp), None  # Eccezione gestita come errore
+        return 'exception', str(excp), None
 
 def progress_bar(current, total, exceptions):
     text = f"\r[ DOMAINS {current}/{total} | ERRORS {exceptions} ]\r"
@@ -43,27 +43,24 @@ def process_domain(domain, days, verbose, output_file, wait_time, counts, total_
         output_str = f"{domain} {extra_info} NEWLY REGISTERED DOMAIN"
     elif result == 'outside_interval' and verbose >= 1:
         output_str = f"{domain} OLD"
-    elif result == 'exception' and verbose >= 2:  # Eccezione o errore
+    elif result == 'exception' and verbose >= 2:
         output_str = f"{domain} EXCEPTION {extra_info}"
         with lock:
             counts['errors'] += 1
-    elif result == 'error' and verbose >= 1:  # Nessuna data di registrazione trovata
+    elif result == 'error' and verbose >= 1:
         output_str = f"{domain} ERROR"
         with lock:
             counts['errors'] += 1
 
-    # Livello 3: mostra la data di registrazione
     if verbose == 3 and registration_date:
         output_str = f"{domain} {registration_date} {('NEWLY REGISTERED DOMAIN' if result == 'within_interval' else 'OLD')}"
 
-    # Progresso: viene aggiornato indipendentemente dalla verbosità
     with lock:
         counts['domains'] += 1
     progress_bar_text, progress_bar_text_clean, progress_bar_length = progress_bar(counts['domains'], total_domains, counts['errors'])
 
-    # Aggiorna la progress bar, anche se non c'è output
     sys.stdout.write(progress_bar_text_clean)
-    if output_str:  # Stampa l'output solo se necessario
+    if output_str:
         print(output_str)
         if output_file:
             with open(output_file, 'a') as f:
