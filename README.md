@@ -1,5 +1,7 @@
 # python-nrd (wip)
-Check domain registration dates and verify if they were registered within a specified number of days
+Check domain registration dates and verify if they were registered within a specified number of days.
+
+Useful for checking the presence of Newly Registered Domains (NRDs).
 
 ## Usage
 ```
