@@ -29,8 +29,8 @@ def is_registered_within_days(domain, days):
     except Exception as excp:
         return 'exception', str(excp), None
 
-def progress_bar(current, total, exceptions):
-    text = f"\r[ DOMAINS {current}/{total} | ERRORS {exceptions} ]\r"
+def progress_bar(current, total, newly_registered, exceptions):
+    text = f"\r[ DOMAINS {current}/{total} | NRD {newly_registered} | ERRORS {exceptions} ]\r"
     length = len(text) + 1
     text_clean = "\r" + " " * length + "\r"
     return text, text_clean, length
@@ -40,24 +40,28 @@ def process_domain(domain, days, verbose, output_file, wait_time, counts, total_
     output_str = ""
 
     if result == 'within_interval':
-        output_str = f"{domain} {extra_info} NEWLY REGISTERED DOMAIN"
-    elif result == 'outside_interval' and verbose >= 1:
-        output_str = f"{domain} OLD"
-    elif result == 'exception' and verbose >= 2:
-        output_str = f"{domain} EXCEPTION {extra_info}"
+        output_str = f"{domain} ({extra_info} days) NEWLY REGISTERED DOMAIN"
+        with lock:
+            counts['newly_registered'] += 1
+    elif result == 'outside_interval' and verbose >= 2:
+        output_str = f"{domain} ({extra_info} days) OLD"
+    elif result == 'exception':
         with lock:
             counts['errors'] += 1
-    elif result == 'error' and verbose >= 1:
-        output_str = f"{domain} ERROR"
+        if verbose >= 1:
+            output_str = f"{domain} EXCEPTION {extra_info}"
+    elif result == 'error':
         with lock:
             counts['errors'] += 1
+        if verbose >= 1:
+            output_str = f"{domain} ERROR"
 
     if verbose == 3 and registration_date:
-        output_str = f"{domain} {registration_date} {('NEWLY REGISTERED DOMAIN' if result == 'within_interval' else 'OLD')}"
+        output_str = f"{domain} ({registration_date}) {('NEWLY REGISTERED DOMAIN' if result == 'within_interval' else 'OLD')}"
 
     with lock:
         counts['domains'] += 1
-    progress_bar_text, progress_bar_text_clean, progress_bar_length = progress_bar(counts['domains'], total_domains, counts['errors'])
+    progress_bar_text, progress_bar_text_clean, progress_bar_length = progress_bar(counts['domains'], total_domains, counts['newly_registered'], counts['errors'])
 
     sys.stdout.write(progress_bar_text_clean)
     if output_str:
@@ -88,20 +92,21 @@ def main():
     parser = argparse.ArgumentParser(
         description='Check domain registration dates and verify if they were registered within a specified number of days.\n'
                     'By default, only domains registered within the specified time frame are printed. Use -v to adjust output verbosity.\n'
-                    '\nOutput format: domain [status]. For newly registered domains, the number of days since registration is also shown.\n',
+                    '\nOutput format: domain [status]. For newly registered domains, the number of days since registration is also shown.\n'
+                    'For old domains, the number of days since registration is shown with the status "OLD".\n',
         usage='%(prog)s [options] -i input_file',
         formatter_class=argparse.RawTextHelpFormatter
     )
-    
+
     parser.add_argument("-i", "--input", required=True, help="File containing the list of domains (one per line)")
     parser.add_argument("-o", "--output", help="File to write the output")
     parser.add_argument("-t", "--time", type=int, default=365, help="Number of days to check registration against (default: 365)")
     parser.add_argument("-v", "--verbose", type=int, choices=[0, 1, 2, 3], default=0, help="""
-                        Set verbosity level (default: 0):
-                        0 - Show only newly registered domains
-                        1 - Show newly registered domains, old domains, errors
-                        2 - Show newly registered domains, old domains, errors, exceptions
-                        3 - Show newly registered domains, old domains, errors, exceptions, registration date (for debugging)
+Set verbosity level (default: 0):
+0 - Show only newly registered domains
+1 - Show newly registered domains, errors, exceptions
+2 - Show newly registered domains, errors, exceptions, old domains
+3 - Show newly registered domains, errors, exceptions, old domains, registration date (for debugging)
                         """)
     parser.add_argument("-x", "--threads", action="store_true", help="Enable multithreaded checking for faster execution")
     parser.add_argument("-y", "--yes", action="store_true", help="Automatically overwrite the output file if it exists")
@@ -117,19 +122,19 @@ def main():
             domains = [line.strip() for line in file]
 
             total_domains = len(domains)
-            counts = {'domains': 0, 'errors': 0}
+            counts = {'domains': 0, 'newly_registered': 0, 'errors': 0}
 
         if args.threads:
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 futures = [
                     executor.submit(
-                        process_domain, 
-                        domain, 
-                        args.time, 
-                        args.verbose, 
-                        args.output, 
-                        args.wait, 
-                        counts, 
+                        process_domain,
+                        domain,
+                        args.time,
+                        args.verbose,
+                        args.output,
+                        args.wait,
+                        counts,
                         total_domains
                     ) for domain in domains]
                 for future in concurrent.futures.as_completed(futures):
