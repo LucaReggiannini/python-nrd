@@ -13,6 +13,8 @@ By default, only domains registered within the specified time frame are printed.
 Output format: domain [status]. For newly registered domains, the number of days since registration is also shown.
 For old domains, the number of days since registration is shown with the status "OLD".
 
+If a cache file is provided, domains found in cache will be checked without WHOIS request and no sleep time will be applied.
+
 options:
   -h, --help            show this help message and exit
   -i INPUT, --input INPUT
@@ -27,10 +29,14 @@ options:
                         1 - Show newly registered domains, errors, exceptions
                         2 - Show newly registered domains, errors, exceptions, old domains
                         3 - Show newly registered domains, errors, exceptions, old domains, registration date (for debugging)
+                        The verbosity level set by -v does not affect internal logging from the "whois" library, which may still display errors or warnings.
 
   -x, --threads         Enable multithreaded checking for faster execution
   -y, --yes             Automatically overwrite the output file if it exists
   -w WAIT, --wait WAIT  Time to wait (in seconds) between WHOIS requests (default: 0)
+  -c CACHE, --cache CACHE
+                        File to use as cache for WHOIS requests. If a domain is found in cache, it will be checked without waiting.
+
 ```
 
 ## How to install dependencies (Arch Linux example)
