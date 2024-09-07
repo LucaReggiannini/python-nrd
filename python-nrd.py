@@ -49,12 +49,13 @@ def is_registered_within_days(domain, days, cache, cache_file):
     else:
         return 'outside_interval', days_since_registration, registration_date, cache_hit
 
-def progress_bar(current, total, newly_registered, exceptions, cache_hits, start_time):
+def progress_bar(current, total, newly_registered, exceptions, cache_hits, start_time, reset_cursor):
     elapsed_time = datetime.now() - start_time
     hours, remainder = divmod(elapsed_time.total_seconds(), 3600)
     minutes, _ = divmod(remainder, 60)
-    formatted_time = start_time.strftime("%H:%M %d/%m/%Y")
-    text = f"\r[ DOMAINS {current}/{total} | NRD {newly_registered} | CACHE {cache_hits} | ERRORS {exceptions} | Start time: {formatted_time} (elapsed {int(hours):02d}:{int(minutes):02d}) ]\r"
+    text = f"\r[ DOMAINS {current}/{total} | NRD {newly_registered} | CACHE {cache_hits} | ERRORS {exceptions} | Total time: {int(hours):02d}:{int(minutes):02d} ]"
+    if reset_cursor:
+        text = text + "\r"
     length = len(text) + 1
     text_clean = "\r" + " " * length + "\r"
     return text, text_clean, length
@@ -73,14 +74,16 @@ def process_domain(domain, days, verbose, output_file, wait_time, counts, total_
         with lock:
             counts['errors'] += 1
         if verbose >= 1:
-            output_str = f"{domain} EXCEPTION {extra_info}"
+            output_str = f"{domain} EXCEPTION"
+            if verbose == 4:
+                output_str += f" {extra_info}"
     elif result == 'error':
         with lock:
             counts['errors'] += 1
         if verbose >= 1:
             output_str = f"{domain} ERROR"
 
-    if verbose == 3 and registration_date:
+    if verbose >= 3 and registration_date:
         output_str = f"{domain} ({registration_date}) {('NEWLY REGISTERED DOMAIN' if result == 'within_interval' else 'OLD')}"
         if cache_hit:
             output_str += " (CACHE)"
@@ -91,7 +94,7 @@ def process_domain(domain, days, verbose, output_file, wait_time, counts, total_
             counts['cache_hits'] += 1
 
     progress_bar_text, progress_bar_text_clean, progress_bar_length = progress_bar(
-        counts['domains'], total_domains, counts['newly_registered'], counts['errors'], counts['cache_hits'], start_time
+        counts['domains'], total_domains, counts['newly_registered'], counts['errors'], counts['cache_hits'], start_time, True
     )
 
     sys.stdout.write(progress_bar_text_clean)
@@ -133,12 +136,13 @@ def main():
     parser.add_argument("-i", "--input", required=True, help="File containing the list of domains (one per line)")
     parser.add_argument("-o", "--output", help="File to write the output")
     parser.add_argument("-t", "--time", type=int, default=365, help="Number of days to check registration against (default: 365)")
-    parser.add_argument("-v", "--verbose", type=int, choices=[0, 1, 2, 3], default=0, help="""
+    parser.add_argument("-v", "--verbose", type=int, choices=[0, 1, 2, 3, 4], default=0, help="""
 Set verbosity level (default: 0):
 0 - Show only newly registered domains
 1 - Show newly registered domains, errors, exceptions
 2 - Show newly registered domains, errors, exceptions, old domains
-3 - Show newly registered domains, errors, exceptions, old domains, registration date (for debugging)
+3 - Show newly registered domains, errors, exceptions, old domains, registration date
+4 - Show newly registered domains, errors, exceptions, old domains, registration date, exception text
 The verbosity level set by -v does not affect internal logging from the "whois" library, which may still display errors or warnings.
                         """)
     parser.add_argument("-x", "--threads", action="store_true", help="Enable multithreaded checking for faster execution")
@@ -183,6 +187,13 @@ The verbosity level set by -v does not affect internal logging from the "whois" 
             for domain in domains:
                 process_domain(domain, args.time, args.verbose, args.output, args.wait, counts, total_domains, cache, args.cache, start_time)
 
+        progress_bar_text, _, _ = progress_bar(
+            counts['domains'], total_domains, counts['newly_registered'], counts['errors'], counts['cache_hits'], start_time, False
+        )
+        sys.stdout.write(progress_bar_text)
+        sys.stdout.flush()
+        print("")
+        
     except FileNotFoundError:
         print(f"Error: file {args.input} not found!")
         sys.exit(1)
