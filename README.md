@@ -7,36 +7,76 @@ Useful for checking the presence of Newly Registered Domains (NRDs).
 ```
 usage: python-nrd.py [options] -i input_file
 
-Check domain registration dates and verify if they were registered within a specified number of days.
-By default, only domains registered within the specified time frame are printed. Use -v to adjust output verbosity.
+Check domain registration dates and verify if they were registered within a 
+specified number of days. By default, only domains registered within the
+specified time frame are printed. Use -v to adjust output verbosity. 
 
-Output format: domain [status]. For newly registered domains, the number of days since registration is also shown.
-For old domains, the number of days since registration is shown with the status "OLD".
+Output format: domain [status]. 
 
-If a cache file is provided, domains found in cache will be checked without WHOIS request and no sleep time will be applied. 
+For newly registered domains, the number of days since registration is also
+shown. For old domains, the number of days since registration is shown with
+the status "OLD". If a cache file is provided, domains found in cache will
+be checked without WHOIS request and no sleep time will be applied.
 
 options:
   -h, --help            show this help message and exit
   -i INPUT, --input INPUT
+                        
                         File containing the list of domains (one per line)
+                        
   -o OUTPUT, --output OUTPUT
+                        
                         File to write the output
-  -t TIME, --time TIME  Number of days to check registration against (default: 365)
+                        
+  -t TIME, --time TIME  
+                        Number of days to check registration against 
+                        (default: 365)
+                        
   -v {0,1,2,3,4}, --verbose {0,1,2,3,4}
                         
                         Set verbosity level (default: 0):
+                        
                         0 - Show only newly registered domains
-                        1 - Show newly registered domains, errors, exceptions
-                        2 - Show newly registered domains, errors, exceptions, old domains
-                        3 - Show newly registered domains, errors, exceptions, old domains, registration date
-                        4 - Show newly registered domains, errors, exceptions, old domains, registration date, exception text
-                        The verbosity level set by -v does not affect internal logging from the "whois" library, which may still display errors or warnings.
-                                                
-  -x, --threads         Enable multithreaded checking for faster execution
-  -y, --yes             Automatically overwrite the output file if it exists
-  -w WAIT, --wait WAIT  Time to wait (in seconds) between WHOIS requests (default: 0)
+                        1 - Show newly registered domains, errors/invalids,
+                            exceptions
+                        2 - Show newly registered domains, errors/invalids,
+                            exceptions, old domains
+                        3 - Show newly registered domains, errors/invalids,
+                            exceptions, old domains, registration date
+                        4 - Show newly registered domains, errors/invalids,
+                            exceptions, old domains, registration date, 
+                            exception text
+                        
+                        The verbosity level set by -v does not affect
+                        internal logging from the "whois" library, which
+                        may still display errors or warnings.
+                        
+  -x, --threads         
+                        Enable multithreaded checking for faster execution
+                        
+  -y, --yes             
+                        Automatically overwrite the output file if it
+                        exists
+                        
+  -w WAIT, --wait WAIT  
+                        Time to wait (in seconds) between WHOIS requests 
+                        default: 0)
+                        
   -c CACHE, --cache CACHE
-                        File to use as cache for WHOIS requests. If a domain is found in cache, it will be checked without waiting.
+                        
+                        File to use as cache for WHOIS requests. If a
+                        domain is found in cache, it will be checked
+                        without waiting.
+                        
+  -T TLDS, --tlds TLDS  
+                        File to use as a list of TLDs to check if a
+                        domain is VALID. If the domain does not contain a
+                        valid TLD, no WHOIS request will be performed. 
+                        The file must contains one TLD per line (case 
+                        insensitive). Do not include the dot ('.') 
+                        before the TLD. You can check 
+                        https://data.iana.org/TLD/tlds-alpha-by-domain.txt
+                        for a complete list.
 
 ```
 
