@@ -97,5 +97,5 @@ Test to verify the limits imposed by the default whois servers:
 
 Currently, setting a sleep time in single-thread mode seems to allow for a high number of WHOIS queries over time without being blocked by the WHOIS servers.
 
-If you perform periodic domain analysis on networks with a large number of users, it is recommended to use the TLD Cache and Check system: this will significantly reduce the analysis time:
-* With Command `python-nrd.py -v 1 -i list.txt -w 1 -c cache.txt -T tlds.txt`  **successfully performed 32000 queries** (total time 3:50 hours)
+If you perform periodic domain analysis on networks with a large number of users, it is recommended to use the Cache and TLD check systems: this will significantly reduce the analysis time:
+* With Command `python-nrd.py -v 1 -i list.txt -w 1 -c cache.txt -T tlds.txt` **successfully performed 32000 queries** (total time 3:50 hours)
